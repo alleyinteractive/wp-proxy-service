@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="create-php-package" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
-  <description>PHP_CodeSniffer standard for create-php-package.</description>
+<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="WP Proxy Service" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
+  <description>PHP_CodeSniffer standard for WP Proxy Service.</description>
 
   <!-- Include Alley Rules -->
   <rule ref="Alley-Interactive" />
@@ -30,15 +30,14 @@
   <exclude-pattern>build/</exclude-pattern>
   <exclude-pattern>vendor/</exclude-pattern>
 
-  <!-- The version set here matches the minimum version tested in buddy.yml. -->
-  <config name="minimum_supported_wp_version" value="5.9" />
+  <config name="minimum_supported_wp_version" value="6.4" />
 
   <!-- Define the prefixes that can be used by the plugin -->
   <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
     <properties>
       <property name="prefixes" type="array">
-        <element value="vendor_name" />
-        <element value="Create_PHP_Package" />
+        <element value="alleyinteractive" />
+        <element value="Alley\WP\Proxy_Service" />
       </property>
     </properties>
   </rule>
