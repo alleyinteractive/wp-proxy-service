@@ -1,0 +1,16 @@
+name: Testing Suite
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  # Uncomment and edit the following to run on a schedule.
+  # schedule:
+  #   - cron: '15 5 * * 0' # Run once per week at 5:15am UTC on Sundays.
+
+jobs:
+  unit-tests:
+    uses: alleyinteractive/.github/.github/workflows/php-tests.yml@main
+    with:
+      php: "8.2"
