@@ -20,24 +20,10 @@ use WP_REST_Server;
 class Service {
 
 	/**
-	 * Handler key.
-	 */
-	const HANDLER_KEY = 'wp_proxy_service';
-
-	/**
 	 * Set up.
 	 */
 	public function init(): void {
 		add_filter( 'rest_pre_dispatch', [ $this, 'dispatch' ], 10, 3 );
-	}
-
-	/**
-	 * Get the handler key.
-	 *
-	 * @return string Handler key.
-	 */
-	public static function get_handler_key(): string {
-		return self::HANDLER_KEY;
 	}
 
 	/**
@@ -47,9 +33,9 @@ class Service {
 	 *                                 a normal endpoint can return, or null to not hijack the request.
 	 * @param WP_REST_Server  $server  Server instance.
 	 * @param WP_REST_Request $request Request used to generate the response.
-	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 * @return WP_REST_Response|WP_Error|null Response object on success, or WP_Error object on failure. Null if returning without proxying.
 	 */
-	public function dispatch( $result, $server, $request ): WP_REST_Response|WP_Error {
+	public function dispatch( $result, $server, $request ): WP_REST_Response|WP_Error|null {
 		/**
 		 * Filter whether to proxy the request.
 		 *
@@ -107,9 +93,7 @@ class Service {
 	 * @param WP_REST_Response|null $response Response object on success, or null on failure.
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
-	protected function respond_to_request( $request, $route, $handler, $response = null ) {
-		$handler_key = $this->get_handler_key();
-
+	protected function respond_to_request( $request, $route, $handler, $response = null ): WP_REST_Response|WP_Error  {
 		// Check permission specified on the route.
 		if ( ! is_wp_error( $response ) && ! empty( $handler['permission_callback'] ) ) {
 			$permission = call_user_func( $handler['permission_callback'], $request );
@@ -125,26 +109,81 @@ class Service {
 			}
 		}
 
-		if ( empty( $handler[ $handler_key ]['base_url'] ) || empty( $handler[ $handler_key ]['route'] ) ) {
+		$defaults = [
+			'base_url' => '',
+			'headers'  => [],
+			'route'    => '',
+		];
+
+		/**
+		 * Filter the request options.
+		 *
+		 * @param array $defaults Default request options.
+		 * @param WP_REST_Request $request The request.
+		 */
+		$request_options = apply_filters( 'wp_proxy_service_request_options', $defaults, $request );
+
+		$base_url          = $request_options['base_url'] ?? '';
+		$destination_route = $request_options['route'] ?? '';
+
+		if ( empty( $base_url ) || empty( $destination_route ) ) {
 			return new WP_Error(
-				'rest_forbidden',
+				'missing_proxy_base_url_or_route',
 				__( 'A proxy base URL and route must be specified.', 'wp-proxy-service' ),
 				[ 'status' => 500 ]
 			);
 		}
 
-		$url = trailingslashit( $handler[ $handler_key ]['base_url'] ) . ltrim( $handler[ $handler_key ]['route'], '/\\' );
+		$url = trailingslashit( $base_url ) . ltrim( $destination_route, '/\\' );
 
-		$request_args = $request->get_params();
+		$request_params = $this->get_request_params( $request );
 
-		if ( ! empty( $handler[ $handler_key ]['param_transformation_callback'] ) && is_callable( $handler[ $handler_key ]['param_transformation_callback'] ) ) {
-			$request_args = call_user_func( $handler[ $handler_key ]['param_transformation_callback'], $request_args );
+		$url = add_query_arg( $request_params, $url );
+
+		$args = [];
+		if ( ! empty( $request_options['headers'] )	) {
+			$args['headers'] = $request_options['headers'] ?? [];
 		}
 
-		$url = add_query_arg( $request_args, $url );
+		$response = $this->get_response( $request, $url, $args );
 
-		$response = vip_safe_wp_remote_get( $url );
+		return $response;
+	}
+
+	/**
+	 * Get request params.
+	 *
+	 * @param WP_REST_Request $request The request.
+	 * @return array Request params.
+	 */
+	protected function get_request_params( WP_REST_Request $request ): array {
+		/**
+		 * Filter the request params.
+		 *
+		 * @param array $params The request params.
+		 */
+		return apply_filters( 'wp_proxy_service_request_params', $request->get_params() );
+	}
+
+	/**
+	 * Get response.
+	 *
+	 * @param WP_REST_Request $request The request.
+	 * @param string $url The URL.
+	 * @param array $args The args. Optional.
+	 * @return WP_REST_Response|WP_Error The response.
+	 */
+	protected function get_response( WP_REST_Request $request, string $url, array $args = [] ): WP_REST_Response|WP_Error  {
+		$response = vip_safe_wp_remote_get( url: $url, args: $args );
+
+		/**
+		 * Filter the response.
+		 *
+		 * @param array|WP_Error $response The response.
+		 * @param WP_REST_Request $request The request.
+		 */
+		$response = apply_filters( 'wp_proxy_service_response', $response, $request );
+
 		return rest_ensure_response( $response );
-
 	}
 }
