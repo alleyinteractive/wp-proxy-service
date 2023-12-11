@@ -1,4 +1,12 @@
 <?php
+/**
+ * Abstract Test Case.
+ *
+ * @package wp-proxy-service
+ */
+
+declare(strict_types = 1);
+
 namespace Alley\WP\Proxy_Service\Tests;
 
 use Mantle\Testkit\Test_Case as TestkitTest_Case;

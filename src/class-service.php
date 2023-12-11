@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Alley\WP\Proxy_Service;
 
+use ReflectionMethod;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -29,10 +30,10 @@ class Service {
 	/**
 	 * Dispatch the request.
 	 *
-	 * @param mixed           $result  Response to replace the requested version with. Can be anything
-	 *                                 a normal endpoint can return, or null to not hijack the request.
-	 * @param WP_REST_Server  $server  Server instance.
-	 * @param WP_REST_Request $request Request used to generate the response.
+	 * @param WP_REST_Response|WP_Error|null $result Response to replace the requested version with. Can be anything
+	 *                                               a normal endpoint can return, or null to not hijack the request.
+	 * @param WP_REST_Server                 $server  Server instance.
+	 * @param WP_REST_Request                $request Request used to generate the response.
 	 * @return WP_REST_Response|WP_Error|null Response object on success, or WP_Error object on failure. Null if returning without proxying.
 	 */
 	public function dispatch( $result, $server, $request ): WP_REST_Response|WP_Error|null {
@@ -69,7 +70,25 @@ class Service {
 			return $check_sanitized;
 		}
 
-		return $this->respond_to_request( $request, $route, $handler );
+		// Check permission.
+		$check_permission = $this->has_permission( $handler, $request );
+		if ( is_wp_error( $check_permission ) ) {
+			return $check_permission;
+		}
+
+		// Build URL.
+		$url = $this->get_url( $request );
+		if ( is_wp_error( $url ) ) {
+			return $url;
+		}
+
+		// Get request args.
+		$request_args = $this->get_request_args( $request );
+
+		// Get response.
+		$response = $this->get_response( $request, $url, $request_args );
+
+		return $response;
 	}
 
 	/**
@@ -77,77 +96,87 @@ class Service {
 	 *
 	 * @param WP_REST_Server  $server  Server instance.
 	 * @param WP_REST_Request $request Request used to generate the response.
-	 * @return array|WP_Error Array containing the route and handler on success, or WP_Error object on failure.
+	 * @return mixed[]|WP_Error Array containing the route and handler on success, or WP_Error object on failure.
 	 */
-	protected function match_request_to_handler( $server, $request ): array|WP_Error {
-		$reflection_method = new \ReflectionMethod( $server, 'match_request_to_handler' );
-		return $reflection_method->invoke( $server, $request );
+	protected function match_request_to_handler( WP_REST_Server $server, WP_REST_Request $request ): array|WP_Error {
+		$method = new ReflectionMethod( $server, 'match_request_to_handler' );
+		return $method->invoke( $server, $request );
 	}
 
 	/**
-	 * Respond to request.
+	 * Check permission for request.
 	 *
-	 * @param WP_REST_Request       $request Request used to generate the response.
-	 * @param array                 $route Route data.
-	 * @param array                 $handler Handler data.
-	 * @param WP_REST_Response|null $response Response object on success, or null on failure.
-	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 * @param mixed[]         $handler The handler.
+	 * @param WP_REST_Request $request The request.
+	 * @return bool|WP_Error True if the request has permission, WP_Error object otherwise.
 	 */
-	protected function respond_to_request( $request, $route, $handler, $response = null ): WP_REST_Response|WP_Error  {
-		// Check permission specified on the route.
-		if ( ! is_wp_error( $response ) && ! empty( $handler['permission_callback'] ) ) {
-			$permission = call_user_func( $handler['permission_callback'], $request );
-
-			if ( is_wp_error( $permission ) ) {
-				return $permission;
-			} elseif ( false === $permission || null === $permission ) {
-				return new WP_Error(
-					'rest_forbidden',
-					__( 'Sorry, you are not allowed to do that.', 'wp-proxy-service' ),
-					[ 'status' => rest_authorization_required_code() ]
-				);
-			}
+	protected function has_permission( array $handler, WP_REST_Request $request ): bool|WP_Error {
+		if ( empty( $handler['permission_callback'] ) ) {
+			return true;
 		}
 
-		$defaults = [
-			'base_url' => '',
-			'headers'  => [],
-			'route'    => '',
-		];
+		$permission = call_user_func( $handler['permission_callback'], $request );
 
+		if ( is_wp_error( $permission ) ) {
+			return $permission;
+		}
+
+		if ( false === $permission || null === $permission ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Sorry, you are not allowed to do that.', 'wp-proxy-service' ),
+				[ 'status' => rest_authorization_required_code() ]
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Build the destination URL.
+	 *
+	 * @param WP_REST_Request $request The request.
+	 * @return string|WP_Error The URL or WP_Error object on failure.
+	 */
+	protected function get_url( WP_REST_Request $request ): string|WP_Error {
 		/**
-		 * Filter the request options.
+		 * Filter the destination URL.
 		 *
-		 * @param array $defaults Default request options.
+		 * @param string $url URL.
 		 * @param WP_REST_Request $request The request.
 		 */
-		$request_options = apply_filters( 'wp_proxy_service_request_options', $defaults, $request );
+		$url = apply_filters( 'wp_proxy_service_url', '', $request );
 
-		$base_url          = $request_options['base_url'] ?? '';
-		$destination_route = $request_options['route'] ?? '';
-
-		if ( empty( $base_url ) || empty( $destination_route ) ) {
+		if ( empty( $url ) ) {
 			return new WP_Error(
-				'missing_proxy_base_url_or_route',
-				__( 'A proxy base URL and route must be specified.', 'wp-proxy-service' ),
+				'missing_destination_url',
+				__( 'A destination URL must be specified.', 'wp-proxy-service' ),
 				[ 'status' => 500 ]
 			);
 		}
 
-		$url = trailingslashit( $base_url ) . ltrim( $destination_route, '/\\' );
-
 		$request_params = $this->get_request_params( $request );
+		return add_query_arg( $request_params, $url );
+	}
 
-		$url = add_query_arg( $request_params, $url );
+	/**
+	 * Get request args.
+	 *
+	 * @param WP_REST_Request $request The request.
+	 * @return array The request args.
+	 */
+	protected function get_request_args( WP_REST_Request $request ): array {
+		$defaults = [
+			'headers' => [],
+		];
 
-		$args = [];
-		if ( ! empty( $request_options['headers'] )	) {
-			$args['headers'] = $request_options['headers'] ?? [];
-		}
-
-		$response = $this->get_response( $request, $url, $args );
-
-		return $response;
+		/**
+		 * Filter the request args.
+		 *
+		 * @param array $defaults The request args.
+		 * @param WP_REST_Request $request The request.
+		 */
+		return apply_filters( 'wp_proxy_service_request_args', $defaults, $request );
 	}
 
 	/**
@@ -169,11 +198,11 @@ class Service {
 	 * Get response.
 	 *
 	 * @param WP_REST_Request $request The request.
-	 * @param string $url The URL.
-	 * @param array $args The args. Optional.
+	 * @param string          $url The URL.
+	 * @param array           $args The args. Optional.
 	 * @return WP_REST_Response|WP_Error The response.
 	 */
-	protected function get_response( WP_REST_Request $request, string $url, array $args = [] ): WP_REST_Response|WP_Error  {
+	protected function get_response( WP_REST_Request $request, string $url, array $args = [] ): WP_REST_Response|WP_Error {
 		$response = vip_safe_wp_remote_get( url: $url, args: $args );
 
 		/**

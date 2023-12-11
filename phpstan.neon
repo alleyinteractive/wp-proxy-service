@@ -3,15 +3,12 @@ includes:
 
 parameters:
 	# Level 9 is the highest level
-	level: max
+	level: 8
 
 	paths:
 		- src/
 
 #    ignoreErrors:
 #        - '#PHPDoc tag @var#'
-#
-#    excludePaths:
-#        - ./*/*/FileToBeExcluded.php
 #
 #    checkMissingIterableValueType: false
