@@ -11,9 +11,12 @@ namespace Alley\WP\Proxy_Service;
 
 use ReflectionMethod;
 use WP_Error;
+use WP_Http_Cookie;
+use WP_HTTP_Requests_Response;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
+use WpOrg\Requests\Utility\CaseInsensitiveDictionary;
 
 /**
  * Service class.
@@ -163,7 +166,15 @@ class Service {
 	 * Get request args.
 	 *
 	 * @param WP_REST_Request $request The request.
-	 * @return array The request args.
+	 * @return array {
+	 *     The request arguments.
+	 *
+	 *     @type string|string[] $headers Optional. The request headers. Defaults to empty array.
+	 *     @type string          $method Optional. The request method. Defaults to 'GET'.
+	 *     @type float           $timeout Optional. The request timeout. Defaults to 5.
+	 * }
+	 *
+	 * @phpstan-return array{headers?: string|string[], method?: string, timeout?: float}
 	 */
 	protected function get_request_args( WP_REST_Request $request ): array {
 		$defaults = [
@@ -184,6 +195,8 @@ class Service {
 	 *
 	 * @param WP_REST_Request $request The request.
 	 * @return array Request params.
+	 *
+	 * @phpstan-return array<string, string>
 	 */
 	protected function get_request_params( WP_REST_Request $request ): array {
 		/**
@@ -199,11 +212,19 @@ class Service {
 	 *
 	 * @param WP_REST_Request $request The request.
 	 * @param string          $url The URL.
-	 * @param array           $args The args. Optional.
+	 * @param array           $args {
+	 *               Optional. The request arguments.
+	 *
+	 *     @type string|string[] $headers Optional. The request headers. Defaults to empty array.
+	 *     @type string          $method Optional. The request method. Defaults to 'GET'.
+	 *     @type float           $timeout Optional. The request timeout. Defaults to 5.
+	 * }
 	 * @return WP_REST_Response|WP_Error The response.
+	 *
+	 * @phpstan-param array{headers?: string|string[], method?: string, timeout?: float} $args
 	 */
 	protected function get_response( WP_REST_Request $request, string $url, array $args = [] ): WP_REST_Response|WP_Error {
-		$response = vip_safe_wp_remote_get( url: $url, args: $args );
+		$response = $this->safe_wp_remote_request( $url, $args );
 
 		/**
 		 * Filter the response.
@@ -214,5 +235,52 @@ class Service {
 		$response = apply_filters( 'wp_proxy_service_response', $response, $request );
 
 		return rest_ensure_response( $response );
+	}
+
+	/**
+	 * Wrapper for wp_remote_request.
+	 *
+	 * Similar to vip_safe_wp_remote_get, as it ensures a max timeout of 3 seconds.
+	 * Less forgiving than vip_safe_wp_remote_get which will retry a request 3 times.
+	 * This starts to pull back requests after just one failure.
+	 *
+	 * @todo Update with retry and threshold support.
+	 *
+	 * @param string $url URL.
+	 * @param array  $request_args {
+	 *      The request arguments.
+	 *
+	 *     @type string|string[] $headers Optional. The request headers. Defaults to empty array.
+	 *     @type string          $method Optional. The request method. Defaults to 'GET'.
+	 *     @type float           $timeout Optional. The request timeout. Defaults to 5.
+	 * }
+	 * @return array|WP_Error {
+	 *     The response array or a WP_Error on failure.
+	 *
+	 *     @type CaseInsensitiveDictionary      $headers       Array of response headers keyed by their name.
+	 *     @type string                         $body          Response body.
+	 *     @type array                          $response      {
+	 *         Data about the HTTP response.
+	 *
+	 *         @type int    $code    HTTP response code.
+	 *         @type string $message HTTP response message.
+	 *     }
+	 *     @type int|WP_Http_Cookie[]           $cookies       Array of response cookies.
+	 *     @type WP_HTTP_Requests_Response|null $http_response Raw HTTP response object.
+	 * }
+	 *
+	 * @phpstan-param array{headers?: string|string[], method?: string, timeout?: float} $request_args
+	 * @phpstan-return array{'headers': CaseInsensitiveDictionary, 'body': string, 'response': array{'code': int, 'message': string}, 'cookies': array<int, WP_Http_Cookie>, 'http_response': WP_HTTP_Requests_Response|null}|\WP_Error
+	 */
+	protected function safe_wp_remote_request( string $url, array $request_args ): array|WP_Error {
+		// Ensure a max timeout is set.
+		if ( empty( $request_args['timeout'] ) ) {
+			$request_args['timeout'] = 1;
+		}
+
+		// Ensure the timeout is at most 3 seconds.
+		$request_args['timeout'] = min( 3, (float) $request_args['timeout'] );
+
+		return wp_remote_request( $url, $request_args );
 	}
 }

@@ -8,7 +8,4 @@ parameters:
 	paths:
 		- src/
 
-#    ignoreErrors:
-#        - '#PHPDoc tag @var#'
-#
-#    checkMissingIterableValueType: false
+	checkGenericClassInNonGenericObjectType: false
