@@ -2,6 +2,8 @@
 /**
  * Service class file
  *
+ * @todo Add caching layer.
+ *
  * @package wp-proxy-service
  */
 
@@ -194,9 +196,9 @@ class Service {
 	 * Get request params.
 	 *
 	 * @param WP_REST_Request $request The request.
-	 * @return array Request params.
+	 * @return mixed[] Request params.
 	 *
-	 * @phpstan-return array<string, string>
+	 * @phpstan-return mixed[]
 	 */
 	protected function get_request_params( WP_REST_Request $request ): array {
 		/**
@@ -270,7 +272,7 @@ class Service {
 	 * }
 	 *
 	 * @phpstan-param array{headers?: string|string[], method?: string, timeout?: float} $request_args
-	 * @phpstan-return array{'headers': CaseInsensitiveDictionary, 'body': string, 'response': array{'code': int, 'message': string}, 'cookies': array<int, WP_Http_Cookie>, 'http_response': WP_HTTP_Requests_Response|null}|\WP_Error
+	 * @phpstan-return array{'headers': CaseInsensitiveDictionary, 'body': string, 'response': array{'code': int, 'message': string}, 'cookies': array<int, WP_Http_Cookie>, 'http_response': WP_HTTP_Requests_Response|null}|WP_Error
 	 */
 	protected function safe_wp_remote_request( string $url, array $request_args ): array|WP_Error {
 		// Ensure a max timeout is set.
