@@ -36,7 +36,7 @@
   <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
     <properties>
       <property name="prefixes" type="array">
-        <element value="alleyinteractive" />
+        <element value="wp_proxy_service" />
         <element value="Alley\WP\Proxy_Service" />
       </property>
     </properties>

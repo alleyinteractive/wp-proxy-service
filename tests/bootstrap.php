@@ -3,9 +3,10 @@
  * WP Proxy Service Test Bootstrap
  */
 
-/**
- * Visit {@see https://mantle.alley.co/testing/test-framework.html} to learn more.
- */
-\Mantle\Testing\manager()
+declare(strict_types = 1);
+
+use function Mantle\Testing\manager;
+
+manager()
 	->maybe_rsync_plugin()
 	->install();
