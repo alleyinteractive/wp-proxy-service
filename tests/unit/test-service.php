@@ -47,7 +47,8 @@ class Test_Service extends TestCase {
 		remove_all_actions( 'rest_api_init' );
 		remove_all_filters( 'wp_proxy_service_should_proxy_request' );
 		remove_all_filters( 'wp_proxy_service_url' );
-		remove_all_filters( 'wp_proxy_service_response' );
+		remove_all_filters( 'wp_proxy_service_response_before_request' );
+		remove_all_filters( 'wp_proxy_service_response_after_request' );
 		remove_all_filters( 'wp_proxy_service_request_params' );
 
 		parent::teardown();
@@ -127,14 +128,27 @@ class Test_Service extends TestCase {
 			'unfiltered response' => [
 				[
 					'body'            => 'apple',
-					'filter_callback' => fn( $value ) => $value,
+					'filter_callback_before_request' => fn( $value ) => $value,
+					'filter_callback_after_request' => fn( $value ) => $value,
 				],
 				'apple',
 			],
-			'filtered response'   => [
+			'filtered response before request'   => [
+				[
+					'body'            => 'grapefruit',
+					'filter_callback_before_request' => function ( $value ) {
+						$value['body'] = 'pear';
+						return $value;
+					},
+					'filter_callback_after_request' => fn( $value ) => $value,
+				],
+				'pear',
+			],
+			'filtered response after request'   => [
 				[
 					'body'            => 'orange',
-					'filter_callback' => function ( $value ) {
+					'filter_callback_before_request' => fn( $value ) => $value,
+					'filter_callback_after_request' => function ( $value ) {
 						$value['body'] = 'peach';
 						return $value;
 					},
@@ -166,7 +180,8 @@ class Test_Service extends TestCase {
 
 		$request = new WP_REST_Request( 'GET', "/{$this->namespace}{$this->route}" );
 
-		add_filter( 'wp_proxy_service_response', $original['filter_callback'] );
+		add_filter( 'wp_proxy_service_response_before_request', $original['filter_callback_before_request'] );
+		add_filter( 'wp_proxy_service_response_after_request', $original['filter_callback_after_request'] );
 
 		$result = $method->invoke( $service, $request, 'https://example.org' );
 		$body   = $result->get_data()['body'] ?? '';

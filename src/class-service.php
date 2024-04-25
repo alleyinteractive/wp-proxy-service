@@ -226,15 +226,29 @@ class Service {
 	 * @phpstan-param array{headers?: string|string[], method?: string, timeout?: float} $args
 	 */
 	protected function get_response( WP_REST_Request $request, string $url, array $args = [] ): WP_REST_Response|WP_Error {
+		/**
+		 * Filter the response before the request.
+		 *
+		 * @param null $response The response. The response is null before filters are applied.
+		 * @param WP_REST_Request $request The request.
+		 * @param string $url The URL.
+		 */
+		$response = apply_filters( 'wp_proxy_service_response_before_request', null, $request, $url );
+
+		if ( null !== $response ) {
+			return rest_ensure_response( $response );
+		}
+
 		$response = $this->safe_wp_remote_request( $url, $args );
 
 		/**
-		 * Filter the response.
+		 * Filter the response after the request.
 		 *
 		 * @param array|WP_Error $response The response.
 		 * @param WP_REST_Request $request The request.
+		 * @param string $url The URL.
 		 */
-		$response = apply_filters( 'wp_proxy_service_response', $response, $request );
+		$response = apply_filters( 'wp_proxy_service_response_after_request', $response, $request, $url );
 
 		return rest_ensure_response( $response );
 	}
@@ -254,7 +268,7 @@ class Service {
 	 *
 	 *     @type string|string[] $headers Optional. The request headers. Defaults to empty array.
 	 *     @type string          $method Optional. The request method. Defaults to 'GET'.
-	 *     @type float           $timeout Optional. The request timeout. Defaults to 5.
+	 *     @type float           $timeout Optional. The request timeout. Defaults to 3.
 	 * }
 	 * @return array|WP_Error {
 	 *     The response array or a WP_Error on failure.
@@ -277,7 +291,7 @@ class Service {
 	protected function safe_wp_remote_request( string $url, array $request_args ): array|WP_Error {
 		// Ensure a max timeout is set.
 		if ( empty( $request_args['timeout'] ) ) {
-			$request_args['timeout'] = 1;
+			$request_args['timeout'] = 3;
 		}
 
 		// Ensure the timeout is at most 3 seconds.

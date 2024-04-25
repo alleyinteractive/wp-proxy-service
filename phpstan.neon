@@ -9,3 +9,4 @@ parameters:
 		- src/
 
 	checkGenericClassInNonGenericObjectType: false
+	treatPhpDocTypesAsCertain: false
