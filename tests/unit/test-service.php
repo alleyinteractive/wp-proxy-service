@@ -36,7 +36,7 @@ class Test_Service extends TestCase {
 	 * Set up.
 	 */
 	public function setup(): void {
-		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
+		\add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
 		parent::setup();
 	}
 
@@ -137,7 +137,7 @@ class Test_Service extends TestCase {
 				[
 					'body'            => 'grapefruit',
 					'filter_callback_before_request' => function ( $value ) {
-						$value['body'] = 'pear';
+						$value = 'pear';
 						return $value;
 					},
 					'filter_callback_after_request' => fn( $value ) => $value,
@@ -184,7 +184,7 @@ class Test_Service extends TestCase {
 		add_filter( 'wp_proxy_service_response_after_request', $original['filter_callback_after_request'] );
 
 		$result = $method->invoke( $service, $request, 'https://example.org' );
-		$body   = $result->get_data()['body'] ?? '';
+		$body   = $result->get_data() ?? '';
 
 		$this->assertEquals( $expected, $body );
 	}
