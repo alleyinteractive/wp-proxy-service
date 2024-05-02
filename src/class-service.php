@@ -278,7 +278,11 @@ class Service {
 		$rest_response = new WP_REST_Response( $data );
 
 		// Set status code from the original HTTP response.
-		$rest_response->set_status( wp_remote_retrieve_response_code( $response ) );
+		$status = wp_remote_retrieve_response_code( $response );
+		if ( ! is_int( $status ) ) {
+			$status = 200;
+		}
+		$rest_response->set_status( $status );
 
 		// Set headers.
 		$headers = wp_remote_retrieve_headers( $response );
