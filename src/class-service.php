@@ -250,7 +250,44 @@ class Service {
 		 */
 		$response = apply_filters( 'wp_proxy_service_response_after_request', $response, $request, $url );
 
-		return rest_ensure_response( $response );
+		// Check for a successful response.
+		if ( is_wp_error( $response ) ) {
+			return new WP_REST_Response(
+				[
+					'message' => 'Failed to fetch data',
+					'error'   => $response->get_error_message(),
+				],
+				500
+			);
+		}
+
+		// Get the response body.
+		$data = wp_remote_retrieve_body( $response );
+
+		// Check if decode was successful.
+		if ( null === $data ) {
+			return new WP_REST_Response(
+				[
+					'message' => 'Error getting body',
+				],
+				500
+			);
+		}
+
+		// Create a WP_REST_Response object.
+		$rest_response = new WP_REST_Response( $data );
+
+		// Set status code from the original HTTP response.
+		$rest_response->set_status( wp_remote_retrieve_response_code( $response ) );
+
+		// Set headers.
+		$headers = wp_remote_retrieve_headers( $response );
+		foreach ( $headers as $name => $value ) {
+			$rest_response->header( $name, $value );
+		}
+		$rest_response->header( 'X-Proxied-By', 'wp-proxy-service' );
+
+		return rest_ensure_response( $rest_response );
 	}
 
 	/**
