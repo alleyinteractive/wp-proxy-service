@@ -291,6 +291,8 @@ class Service {
 		}
 		$rest_response->header( 'X-Proxied-By', 'wp-proxy-service' );
 
+		// TODO: Add cookie support.
+
 		return rest_ensure_response( $rest_response );
 	}
 
