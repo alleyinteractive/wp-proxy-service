@@ -264,7 +264,7 @@ class Service {
 		// Get the response body.
 		$data = wp_remote_retrieve_body( $response );
 
-		// Check if decode was successful.
+		// Check if body retrieval was successful.
 		if ( null === $data ) {
 			return new WP_REST_Response(
 				[
