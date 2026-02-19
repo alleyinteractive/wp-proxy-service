@@ -205,8 +205,9 @@ class Service {
 		 * Filter the request params.
 		 *
 		 * @param array $params The request params.
+		 * @param WP_REST_Request $request The request.
 		 */
-		return apply_filters( 'wp_proxy_service_request_params', $request->get_params() );
+		return apply_filters( 'wp_proxy_service_request_params', $request->get_params(), $request );
 	}
 
 	/**
