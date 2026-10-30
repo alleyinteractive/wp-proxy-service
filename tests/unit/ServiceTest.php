@@ -1,6 +1,6 @@
 <?php
 /**
- * Test_Service class file.
+ * ServiceTest class file.
  *
  * @package wp-proxy-service
  */
@@ -11,13 +11,14 @@ namespace Alley\WP\Proxy_Service\Tests\Unit;
 
 use Alley\WP\Proxy_Service\Service;
 use Alley\WP\Proxy_Service\Tests\Mocks\Mock_Http_Response;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
 
-class Test_Service extends TestCase {
+class ServiceTest extends TestCase {
 	/**
 	 * Namespace.
 	 *
@@ -74,7 +75,7 @@ class Test_Service extends TestCase {
 	 *
 	 * @return array Array of data.
 	 */
-	public function data_test_dispatch(): array {
+	public static function data_test_dispatch(): array {
 		return [
 			'should not proxy' => [
 				[
@@ -94,11 +95,10 @@ class Test_Service extends TestCase {
 	/**
 	 * Test the functionality of the dispatch method.
 	 *
-	 * @dataProvider data_test_dispatch
-	 *
 	 * @param array $original The context to test.
 	 * @param mixed $expected The expected result.
 	 */
+	#[DataProvider( 'data_test_dispatch' )]
 	public function test_dispatch( array $original, $expected ): void {
 		$server  = rest_get_server();
 		$service = new Service();
@@ -123,7 +123,7 @@ class Test_Service extends TestCase {
 	 *
 	 * @return array Array of data.
 	 */
-	public function data_test_get_response(): array {
+	public static function data_test_get_response(): array {
 		return [
 			'unfiltered response' => [
 				[
@@ -161,11 +161,10 @@ class Test_Service extends TestCase {
 	/**
 	 * Test the functionality of the get_response method.
 	 *
-	 * @dataProvider data_test_get_response
-	 *
 	 * @param array  $original The context to test.
 	 * @param string $expected The expected result.
 	 */
+	#[DataProvider( 'data_test_get_response' )]
 	public function test_get_response( array $original, string $expected ): void {
 		$service = new Service();
 		$service->init();
@@ -194,7 +193,7 @@ class Test_Service extends TestCase {
 	 *
 	 * @return array Array of data.
 	 */
-	public function data_test_get_url(): array {
+	public static function data_test_get_url(): array {
 		return [
 			'unfiltered url' => [
 				[
@@ -214,11 +213,10 @@ class Test_Service extends TestCase {
 	/**
 	 * Test the functionality of the get_url method.
 	 *
-	 * @dataProvider data_test_get_url
-	 *
 	 * @param array  $original The context to test.
 	 * @param callable $expected Booleann callback to test the expected result.
 	 */
+	#[DataProvider( 'data_test_get_url' )]
 	public function test_get_url( array $original, $expected ): void {
 		$service = new Service();
 		$service->init();
@@ -240,7 +238,7 @@ class Test_Service extends TestCase {
 	 *
 	 * @return array Array of data.
 	 */
-	public function data_test_get_request_params(): array {
+	public static function data_test_get_request_params(): array {
 		return [
 			'unfiltered params' => [
 				[
@@ -268,11 +266,10 @@ class Test_Service extends TestCase {
 	/**
 	 * Test the functionality of the get_request_params method.
 	 *
-	 * @dataProvider data_test_get_request_params
-	 *
 	 * @param array $original The context to test.
 	 * @param array $expected The expected result.
 	 */
+	#[DataProvider( 'data_test_get_request_params' )]
 	public function test_get_request_params( array $original, array $expected ): void {
 		$service = new Service();
 		$service->init();
